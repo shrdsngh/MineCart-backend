@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const Products = require("./product");
 const Orders = require("./Orders");
+const User = require("./DB/User");
 const stripe = require("stripe")(
   "sk_test_51NMml8SG0P2qUZ5rVOR4kwAwlOF6TC8UsmlGxBhagsEBVAtBsfuHAGUzSGzWFIm4RAOkOd27sLsT2OyDQ6erXLY300WcXdc8w8"
 );
@@ -23,6 +24,27 @@ mongoose
   .catch(() => {
     console.log("failed");
   });
+
+app.post("/register", async (req, res) => {
+  let user = new User(req.body);
+  let result = await user.save();
+  result = result.toObject();
+  delete result.password;
+  res.send(result);
+});
+
+app.post("/login", async (req, res) => {
+  if (req.body.password && req.body.email) {
+    let user = await User.findOne(req.body).select("-password");
+    if (user) {
+      res.send(user);
+    } else {
+      res.status(500);
+    }
+  } else {
+    res.status(500);
+  }
+});
 
 app.get("/", (req, res) => res.status(200).send("Hello World"));
 
