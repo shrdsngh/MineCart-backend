@@ -4,6 +4,8 @@ const cors = require("cors");
 const Products = require("./product");
 const Orders = require("./Orders");
 const User = require("./DB/User");
+const Jwt = require("jsonwebtoken");
+const jwtKey = "e-comm";
 const stripe = require("stripe")(
   "sk_test_51NMml8SG0P2qUZ5rVOR4kwAwlOF6TC8UsmlGxBhagsEBVAtBsfuHAGUzSGzWFIm4RAOkOd27sLsT2OyDQ6erXLY300WcXdc8w8"
 );
@@ -26,24 +28,72 @@ mongoose
   });
 
 app.post("/register", async (req, res) => {
-  let user = new User(req.body);
-  let result = await user.save();
-  result = result.toObject();
-  delete result.password;
-  res.send(result);
+  const { email, password, name, id, phone, country, address, gender } =
+    req.body;
+
+  const userDetail = {
+    id: id,
+    email: email,
+    password: password,
+    name: name,
+    phone: phone,
+    country: country,
+    address: address,
+    gender: gender,
+  };
+
+  const user_exist = await User.findOne({ email: email });
+
+  if (user_exist) {
+    res.send({ message: "The Email is already in use !" });
+  } else {
+    User.create(userDetail).then((err, result) => {
+      if (err) {
+        res.status(500).send({ message: err.message });
+      } else {
+        res.send({ message: "User Created Succesfully" });
+      }
+    });
+  }
+
+  // Partition Here
+  // let user = new User(req.body);
+  // let result = await user.save();
+  // result = result.toObject();
+  // delete result.password;
+  // res.send(result);
 });
 
 app.post("/login", async (req, res) => {
-  if (req.body.password && req.body.email) {
-    let user = await User.findOne(req.body).select("-password");
-    if (user) {
-      res.send(user);
+  const { email, password } = req.body;
+
+  const userDetail = await User.findOne({ email: email });
+
+  if (userDetail) {
+    if (password === userDetail.password) {
+      Jwt.sign({ userDetail }, jwtKey, { expiresIn: 60 * 60 }, (err, token) => {
+        if (err) {
+          res.send("some error");
+        }
+        res.send({ userDetail, auth: token });
+      });
     } else {
-      res.status(500);
+      res.send({ error: "invaild Password" });
     }
   } else {
-    res.status(500);
+    res.send({ error: "user does not exist" });
   }
+  // Partition Here
+  // if (req.body.password && req.body.email) {
+  //   let user = await User.findOne(req.body).select("-password");
+  //   if (user) {
+  //     res.send(user);
+  //   } else {
+  //     res.status(500).send({ message: "Invalid Credentials" });
+  //   }
+  // } else {
+  //   res.status(500).send({ message: "Invalid Credentials" });
+  // }
 });
 
 app.get("/", (req, res) => res.status(200).send("Hello World"));
@@ -84,10 +134,12 @@ app.post("/payment/create", async (req, res) => {
 app.post("/orders/add", (req, res) => {
   const products = req.body.basket;
   const price = req.body.price;
-  const email = req.body.email;
-  const address = req.body.address;
+  const email = req.body.address.email;
+  const address = req.body.address.address;
+  const name = req.body.name;
 
   const orderDetails = {
+    name: name,
     products: products,
     price: price,
     address: address,
@@ -95,16 +147,42 @@ app.post("/orders/add", (req, res) => {
   };
 
   Orders.create(orderDetails).then((result, err) => {
-    console.log("Order saved to database >>", result);
+    if (result) {
+      console.log("order added to database>>", result);
+    } else {
+      console.log(err);
+    }
   });
 });
 
 app.post("/orders/get", (req, res) => {
+  const email = req.body.email;
+
   Orders.find({}).then((result) => {
     if (result) {
-      res.send(result);
+      const userOrders = result.filter((order) => order.email === email);
+      res.send(userOrders);
+    } else {
+      res.send("no orders found");
     }
   });
 });
+
+function verifyToken(req, res, next) {
+  let token = req.headers["authorization"];
+  if (token) {
+    token = token.split(" ")[1];
+    console.warn("middleware called ", token);
+    Jwt.verify(token, jwtKey, (err, valid) => {
+      if (err) {
+        res.send({ result: "Plaese provide valid token " });
+      } else {
+        next();
+      }
+    });
+  } else {
+    res.send({ result: "Please add token with header" });
+  }
+}
 
 app.listen(port, () => console.log("listening on port: ", port));
