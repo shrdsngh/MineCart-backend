@@ -55,13 +55,6 @@ app.post("/register", async (req, res) => {
       }
     });
   }
-
-  // Partition Here
-  // let user = new User(req.body);
-  // let result = await user.save();
-  // result = result.toObject();
-  // delete result.password;
-  // res.send(result);
 });
 
 app.post("/login", async (req, res) => {
@@ -83,17 +76,6 @@ app.post("/login", async (req, res) => {
   } else {
     res.send({ error: "user does not exist" });
   }
-  // Partition Here
-  // if (req.body.password && req.body.email) {
-  //   let user = await User.findOne(req.body).select("-password");
-  //   if (user) {
-  //     res.send(user);
-  //   } else {
-  //     res.status(500).send({ message: "Invalid Credentials" });
-  //   }
-  // } else {
-  //   res.status(500).send({ message: "Invalid Credentials" });
-  // }
 });
 
 app.get("/", (req, res) => res.status(200).send("Hello World"));
@@ -175,7 +157,7 @@ function verifyToken(req, res, next) {
     console.warn("middleware called ", token);
     Jwt.verify(token, jwtKey, (err, valid) => {
       if (err) {
-        res.send({ result: "Plaese provide valid token " });
+        res.send({ result: "Please provide valid token " });
       } else {
         next();
       }
